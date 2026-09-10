@@ -74,7 +74,8 @@ func runEnrich(ctx context.Context, s *store.Store, args []string) error {
 	city := fs.String("city", "", "city slug/name, e.g. utrecht")
 	category := fs.String("category", "rent", "rent, buy, newbuild, or all")
 	limit := fs.Int("limit", 25, "maximum listing details to fetch")
-	providerCmd := fs.String("provider-cmd", getenv("FUNDA_DETAIL_CMD", "python3 scripts/pyfunda_detail.py"), "command that accepts a listing URL and prints JSON")
+	profile := fs.String("profile", "chrome", "Chrome, ChromeAndroid, Firefox, Safari, Edge, IOS")
+	timeout := fs.Duration("timeout", 30*time.Second, "HTTP request timeout")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -82,10 +83,9 @@ func runEnrich(ctx context.Context, s *store.Store, args []string) error {
 	if err != nil {
 		return err
 	}
-	p := enrich.CommandProvider{Command: *providerCmd}
 	ok := 0
 	for _, r := range refs {
-		l, err := p.Fetch(ctx, r.URL)
+		l, err := enrich.Fetch(ctx, *profile, *timeout, r.ID)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "[%s] %v\n", r.ID, err)
 			continue
@@ -249,6 +249,5 @@ Commands:
 
 Environment:
   FUNDA_DB          SQLite path (default: ./funda.db)
-  FUNDA_DETAIL_CMD  detail-enrichment command (default: python3 scripts/pyfunda_detail.py)
 `)
 }

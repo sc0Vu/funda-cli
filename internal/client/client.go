@@ -52,7 +52,7 @@ func (c *Client) Get(ctx context.Context, uri string, headers http.Header) ([]by
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("sitemap request failed: %s", resp.Status)
+		return nil, fmt.Errorf("request failed: %s", resp.Status)
 	}
 
 	var responseBody io.ReadCloser

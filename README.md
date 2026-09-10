@@ -8,32 +8,17 @@ The first version deliberately separates three concerns:
 2. **Enrichment** — optionally fetch structured details through an adapter.
 3. **Search** — query a local SQLite database without repeatedly hitting a remote service.
 
-The bundled enrichment adapter uses the unofficial third-party `pyfunda` package. Funda does not provide a public consumer developer API; internal endpoints may change and use may be subject to Funda's terms. Keep request volume low and use this for personal research.
+The bundled enrichment adapter calls Funda API, thanks for `pyfunda`. Funda does not provide a public consumer developer API; internal endpoints may change and use may be subject to Funda's terms. Keep request volume low and use this for personal research.
 
 ## Requirements
 
 - Go 1.23+
-- Python 3.11+ only if you want the optional pyfunda enrichment adapter
 
 ## Build
 
 ```bash
 go mod tidy
 go build -o funda ./cmd/funda
-```
-
-Optional detail provider:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install pyfunda
-```
-
-If your Python environment is not the default `python3`, set:
-
-```bash
-export FUNDA_DETAIL_CMD=".venv/bin/python scripts/pyfunda_detail.py"
 ```
 
 ## First run
@@ -119,7 +104,6 @@ This makes the user-facing search fast and keeps remote requests explicit and ca
 
 ## Next milestones
 
-- Rewrite pyfunda listing api into golang.
 - Throttle the request.
 - Detect changed sitemap `lastmod` values and refresh only stale details.
 - Add `--refresh` to `search`/`view`.

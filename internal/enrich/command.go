@@ -1,35 +1,40 @@
 package enrich
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"os/exec"
-	"strings"
+	"net/http"
+	"time"
 
+	"github.com/sc0vu/funda-cli/internal/client"
 	"github.com/sc0vu/funda-cli/internal/model"
 )
 
-type CommandProvider struct {
-	Command string
-}
+const API_BASE = "https://listing-detail-page.funda.io/api/v4/listing/object/nl/tinyId"
 
-func (p CommandProvider) Fetch(ctx context.Context, rawURL string) (model.Listing, error) {
+func Fetch(ctx context.Context, profile string, timeout time.Duration, objectID string) (model.Listing, error) {
 	var out model.Listing
-	parts := strings.Fields(p.Command)
-	if len(parts) == 0 {
-		return out, fmt.Errorf("empty enrichment command")
+	c, err := client.NewClient(profile, timeout)
+	if err != nil {
+		return out, err
 	}
-	cmd := exec.CommandContext(ctx, parts[0], append(parts[1:], rawURL)...)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return out, fmt.Errorf("detail provider failed: %w: %s", err, strings.TrimSpace(stderr.String()))
+
+	header := http.Header{
+		"Accept": {
+			"application/json",
+		},
 	}
-	if err := json.Unmarshal(stdout.Bytes(), &out); err != nil {
+
+	apiURL := fmt.Sprintf("%s/%s", API_BASE, objectID)
+	body, err := c.Get(ctx, apiURL, header)
+	if err != nil {
+		return out, err
+	}
+	var response model.FundaListingResponse
+	if err := json.Unmarshal(body, &response); err != nil {
 		return out, fmt.Errorf("decode provider JSON: %w", err)
 	}
-	return out, nil
+	out = response.ToListing()
+	return out, err
 }

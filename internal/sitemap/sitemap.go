@@ -2,10 +2,9 @@ package sitemap
 
 import (
 	"context"
-	"compress/gzip"
 	"encoding/xml"
 	"fmt"
-	"io"
+
 	"net/http"
 	"net/url"
 	"path"
@@ -13,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/North-web-dev/impersonate-http"
+	"github.com/sc0vu/funda-cli/internal/client"
 	"github.com/sc0vu/funda-cli/internal/model"
 )
 
@@ -32,72 +31,21 @@ type indexSet struct {
 	} `xml:"sitemap"`
 }
 
-type Client struct {
-	HTTP *http.Client
-}
-
-func NewClient(profile string, timeout time.Duration) (*Client, error) {
-	if profile == "" {
-		profile = "chrome"
-	}
-
-	httpClient, ok := impersonate.NewByName(
-		strings.ToLower(profile),
-		impersonate.WithTimeout(timeout),
-	)
-	if !ok {
-		return nil, fmt.Errorf("unknown browser profile %q", profile)
-	}
-
-	return &Client{HTTP: httpClient}, nil
-}
-
-func (c *Client) Fetch(ctx context.Context, sitemapURL, category string) ([]model.ListingRef, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, sitemapURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set(
-		"Accept",
-		"application/xml,text/xml;q=0.9,*/*;q=0.8",
-	)
-	resp, err := c.HTTP.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("sitemap request failed: %s", resp.Status)
-	}
-
-	var responseBody io.ReadCloser
-	contentEncoding := resp.Header.Get("Content-Encoding")
-	if !resp.Uncompressed {
-		switch contentEncoding {
-		case "":
-			responseBody = resp.Body
-			break
-		case "gzip":
-			gzReader, err := gzip.NewReader(resp.Body)
-			if err != nil {
-				return nil, fmt.Errorf("create gzip reader: %w", err)
-			}
-			defer gzReader.Close()
-			responseBody = gzReader
-			break
-		default:
-			return nil, fmt.Errorf("unknown content encoding: %s", contentEncoding)
-		}
-	}
-
-	body, err := io.ReadAll(responseBody)
+func Fetch(ctx context.Context, profile string, timeout time.Duration, sitemapURL, category string) ([]model.ListingRef, error) {
+	c, err := client.NewClient(profile, timeout)
 	if err != nil {
 		return nil, err
 	}
 
-	contentType := resp.Header.Get("Content-Type")
-	if strings.Contains(contentType, "text/html") {
-		return nil, fmt.Errorf("expected sitemap XML, received HTML")
+	header := http.Header{
+		"Accept": {
+			"application/xml,text/xml;q=0.9,*/*;q=0.8",
+		},
+	}
+
+	body, err := c.Get(ctx, sitemapURL, header)
+	if err != nil {
+		return nil, err
 	}
 
 	var set urlSet
@@ -115,7 +63,7 @@ func (c *Client) Fetch(ctx context.Context, sitemapURL, category string) ([]mode
 		if !matchesCategory(child.Loc, category) {
 			continue
 		}
-		refs, err := c.Fetch(ctx, child.Loc, category)
+		refs, err := Fetch(ctx, profile, timeout, child.Loc, category)
 		if err != nil {
 			return nil, err
 		}

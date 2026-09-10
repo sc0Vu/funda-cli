@@ -57,11 +57,7 @@ func runSync(ctx context.Context, s *store.Store, args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	c, err := sitemap.NewClient(*profile, *timeout)
-	if err != nil {
-		return err
-	}
-	refs, err := c.Fetch(ctx, *url, normalizeCategory(*category))
+	refs, err := sitemap.Fetch(ctx, *profile, *timeout, *url, normalizeCategory(*category))
 	if err != nil {
 		return err
 	}

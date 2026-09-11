@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/sc0vu/funda-cli/internal/enrich"
+	"github.com/sc0vu/funda-cli/internal/model"
+	"github.com/sc0vu/funda-cli/internal/mvgm"
 	"github.com/sc0vu/funda-cli/internal/sitemap"
 	"github.com/sc0vu/funda-cli/internal/store"
 )
@@ -50,27 +52,43 @@ func (a App) Run(ctx context.Context, args []string) error {
 
 func runSync(ctx context.Context, s *store.Store, args []string) error {
 	fs := flag.NewFlagSet("sync", flag.ContinueOnError)
+	source := fs.String("source", "funda", "funda or mvgm")
+	city := fs.String("city", "utrecht", "city for source-specific sync, e.g. utrecht")
 	category := fs.String("category", "rent", "rent, buy, newbuild, or all")
-	url := fs.String("sitemap", defaultIndex, "sitemap or sitemap-index URL")
+	url := fs.String("sitemap", defaultIndex, "Funda sitemap or sitemap-index URL")
 	profile := fs.String("profile", "chrome", "Chrome, ChromeAndroid, Firefox, Safari, Edge, IOS")
 	timeout := fs.Duration("timeout", 30*time.Second, "HTTP request timeout")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	refs, err := sitemap.Fetch(ctx, *profile, *timeout, *url, normalizeCategory(*category))
+
+	var refs []model.ListingRef
+	var err error
+	switch strings.ToLower(*source) {
+	case "funda":
+		refs, err = sitemap.Fetch(ctx, *profile, *timeout, *url, normalizeCategory(*category))
+	case "mvgm":
+		if normalizeCategory(*category) != "rent" && normalizeCategory(*category) != "all" {
+			return fmt.Errorf("MVGM only supports rent listings")
+		}
+		refs, err = mvgm.Sync(ctx, *profile, *timeout, *city)
+	default:
+		return fmt.Errorf("unknown source %q (use funda or mvgm)", *source)
+	}
 	if err != nil {
 		return err
 	}
 	if err := s.UpsertRefs(ctx, refs); err != nil {
 		return err
 	}
-	fmt.Printf("synced %d listing references\n", len(refs))
-	fmt.Printf("use search command to view the data\n")
+	fmt.Printf("synced %d %s listing references\n", len(refs), strings.ToLower(*source))
+	fmt.Printf("use enrich then search to view the data\n")
 	return nil
 }
 
 func runEnrich(ctx context.Context, s *store.Store, args []string) error {
 	fs := flag.NewFlagSet("enrich", flag.ContinueOnError)
+	source := fs.String("source", "funda", "funda or mvgm")
 	city := fs.String("city", "", "city slug/name, e.g. utrecht")
 	category := fs.String("category", "rent", "rent, buy, newbuild, or all")
 	limit := fs.Int("limit", 25, "maximum listing details to fetch")
@@ -79,44 +97,73 @@ func runEnrich(ctx context.Context, s *store.Store, args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	refs, err := s.MissingDetails(ctx, *city, normalizeCategory(*category), *limit)
+	refs, err := s.MissingDetails(ctx, strings.ToLower(*source), *city, normalizeCategory(*category), *limit)
 	if err != nil {
 		return err
 	}
 	ok := 0
 	for _, r := range refs {
-		l, err := enrich.Fetch(ctx, *profile, *timeout, r.ID)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "[%s] %v\n", r.ID, err)
+		if strings.ToLower(*source) == "mvgm" && r.Source != "mvgm" {
 			continue
 		}
-		// r.ID mistmatch the id extracted from URL
-		l.ID = sitemap.ListingID(r.URL)
-		if l.ID == "" {
-			l.ID = r.ID
-		}
-		if l.URL == "" {
-			l.URL = r.URL
-		}
-		if l.City == "" {
-			l.City = r.City
-		}
-		if l.TransactionType == "" {
-			l.TransactionType = r.TransactionType
-		}
-		if err := s.UpsertListing(ctx, l); err != nil {
-			fmt.Fprintf(os.Stderr, "[%s] store: %v\n", r.ID, err)
+		if strings.ToLower(*source) == "funda" && r.Source != "funda" {
 			continue
+		}
+
+		switch strings.ToLower(*source) {
+		case "funda":
+			l, err := enrich.Fetch(ctx, *profile, *timeout, r.ID)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "[%s] %v\n", r.ID, err)
+				continue
+			}
+			l.Source = "funda"
+			l.ID = sitemap.ListingID(r.URL)
+			if l.ID == "" {
+				l.ID = r.ID
+			}
+			if l.URL == "" {
+				l.URL = r.URL
+			}
+			if l.City == "" {
+				l.City = r.City
+			}
+			if l.TransactionType == "" {
+				l.TransactionType = r.TransactionType
+			}
+			if err := s.UpsertListing(ctx, l); err != nil {
+				fmt.Fprintf(os.Stderr, "[%s] store: %v\n", r.ID, err)
+				continue
+			}
+		case "mvgm":
+			l, d, err := mvgm.Fetch(ctx, *profile, *timeout, r)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "[%s] %v\n", r.ID, err)
+				continue
+			}
+			if err := s.UpsertListing(ctx, l); err != nil {
+				fmt.Fprintf(os.Stderr, "[%s] listing store: %v\n", r.ID, err)
+				continue
+			}
+			if err := s.UpsertRentalDetails(ctx, d); err != nil {
+				fmt.Fprintf(os.Stderr, "[%s] rental detail store: %v\n", r.ID, err)
+				continue
+			}
+		default:
+			return fmt.Errorf("unknown source %q (use funda or mvgm)", *source)
 		}
 		ok++
 		fmt.Printf("enriched %s %s\n", r.ID, r.City)
 	}
-	fmt.Printf("enriched %d/%d listings\n", ok, len(refs))
+	fmt.Printf("enriched %d listing(s) from %s\n", ok, strings.ToLower(*source))
 	return nil
 }
 
 func runSearch(ctx context.Context, s *store.Store, args []string) error {
 	fs := flag.NewFlagSet("search", flag.ContinueOnError)
+	source := fs.String("source", "all", "funda, mvgm, or all")
+	income := fs.Float64("income", 0, "gross annual household income for MVGM eligibility")
+	savings := fs.Float64("savings", 0, "own assets; MVGM allows 10% to be added to gross annual income")
 	city := fs.String("city", "", "city, e.g. utrecht")
 	category := fs.String("category", "all", "rent, buy, newbuild, or all")
 	maxPrice := fs.Float64("max-price", 0, "maximum price (requires fetched details)")
@@ -137,6 +184,7 @@ func runSearch(ctx context.Context, s *store.Store, args []string) error {
 	}
 
 	items, err := s.Search(ctx, store.SearchQuery{
+		Source:    strings.ToLower(*source),
 		City:      *city,
 		Category:  normalizeCategory(*category),
 		MaxPrice:  *maxPrice,
@@ -153,8 +201,15 @@ func runSearch(ctx context.Context, s *store.Store, args []string) error {
 		return nil
 	}
 
-	fmt.Printf("%-12s %-8s %-16s %-10s %-8s %-5s %-8s %-10s\n",
-		"ID", "TYPE", "CITY", "PRICE", "AREA", "BED", "ENERGY", "DETAIL")
+	showEligibility := *income > 0 || *savings > 0
+	if showEligibility {
+		fmt.Printf("%-7s %-24s %-16s %-9s %-7s %-7s %-12s %-11s\n",
+			"SOURCE", "ID", "CITY", "PRICE", "AREA", "BED", "REQ.INCOME", "ELIGIBILITY")
+	} else {
+		fmt.Printf("%-7s %-24s %-8s %-16s %-10s %-8s %-5s %-8s %-10s\n",
+			"SOURCE", "ID", "TYPE", "CITY", "PRICE", "AREA", "BED", "ENERGY", "DETAIL")
+	}
+	qualifyingIncome := *income + (*savings * 0.10)
 	for _, l := range items {
 		price := "-"
 		area := "-"
@@ -177,33 +232,81 @@ func runSearch(ctx context.Context, s *store.Store, args []string) error {
 			}
 		}
 
-		fmt.Printf("%-12s %-8s %-16s %-10s %-8s %-5s %-8s %-10s\n",
-			l.ID, l.TransactionType, truncate(l.City, 16), price, area, bedrooms, energy, detail)
+		if showEligibility {
+			required := "-"
+			eligibility := "n/a"
+			if l.Source == "mvgm" && l.HasDetails {
+				if d, err := s.RentalDetails(ctx, l.Source, l.ID); err == nil && d.RequiredIncome > 0 {
+					required = fmt.Sprintf("€%.0f", d.RequiredIncome)
+					ratio := qualifyingIncome / d.RequiredIncome
+					switch {
+					case ratio >= 1.0:
+						eligibility = "eligible*"
+					case ratio >= 0.95:
+						eligibility = "borderline"
+					default:
+						eligibility = "below"
+					}
+				}
+			}
+			fmt.Printf("%-7s %-24s %-16s %-9s %-7s %-7s %-12s %-11s\n",
+				l.Source, truncate(l.ID, 24), truncate(l.City, 16), price, area, bedrooms, required, eligibility)
+		} else {
+			fmt.Printf("%-7s %-24s %-8s %-16s %-10s %-8s %-5s %-8s %-10s\n",
+				l.Source, truncate(l.ID, 24), l.TransactionType, truncate(l.City, 16), price, area, bedrooms, energy, detail)
+		}
 		if *showURL {
 			fmt.Printf("  %s\n", l.URL)
 		}
+	}
+	if showEligibility {
+		fmt.Printf("qualifying income used: €%.0f (= income €%.0f + 10%% of savings €%.0f)\n", qualifyingIncome, *income, *savings)
+		fmt.Println("* eligibility is an estimate; listing-specific requirements and MVGM verification still apply")
 	}
 	fmt.Printf("%d result(s)\n", len(items))
 	return nil
 }
 
 func runView(ctx context.Context, s *store.Store, args []string) error {
-	if len(args) != 1 {
-		return fmt.Errorf("usage: funda view <listing-id>")
+	fs := flag.NewFlagSet("view", flag.ContinueOnError)
+	source := fs.String("source", "all", "funda, mvgm, or all")
+	if err := fs.Parse(args); err != nil {
+		return err
 	}
-	items, err := s.Search(ctx, store.SearchQuery{Limit: 10000})
+	if fs.NArg() != 1 {
+		return fmt.Errorf("usage: funda view [--source funda|mvgm] <listing-id>")
+	}
+	id := fs.Arg(0)
+	items, err := s.Search(ctx, store.SearchQuery{Source: strings.ToLower(*source), Limit: 10000})
 	if err != nil {
 		return err
 	}
+	var matches []model.Listing
 	for _, l := range items {
-		if l.ID == args[0] {
-			fmt.Printf("ID: %s\nAddress: %s\nCity: %s\nType: %s\nPrice: %.0f\nArea: %.0f m²\nBedrooms: %d\nRooms: %d\nEnergy: %s\nStatus: %s\nURL: %s\nFetched: %s\n",
-				l.ID, l.Address, l.City, l.TransactionType, l.Price, l.LivingArea,
-				l.Bedrooms, l.Rooms, l.EnergyLabel, l.Status, l.URL, l.FetchedAt)
-			return nil
+		if l.ID == id {
+			matches = append(matches, l)
 		}
 	}
-	return fmt.Errorf("listing %s not found", args[0])
+	if len(matches) == 0 {
+		return fmt.Errorf("listing %s not found", id)
+	}
+	if len(matches) > 1 {
+		var sources []string
+		for _, l := range matches {
+			sources = append(sources, l.Source)
+		}
+		return fmt.Errorf("listing ID %s exists in multiple sources (%s); use --source", id, strings.Join(sources, ", "))
+	}
+	l := matches[0]
+	fmt.Printf("Source: %s\nID: %s\nAddress: %s\nCity: %s\nType: %s\nPrice: %.0f\nArea: %.0f m²\nBedrooms: %d\nRooms: %d\nEnergy: %s\nStatus: %s\nURL: %s\nFetched: %s\n",
+		l.Source, l.ID, l.Address, l.City, l.TransactionType, l.Price, l.LivingArea,
+		l.Bedrooms, l.Rooms, l.EnergyLabel, l.Status, l.URL, l.FetchedAt)
+	if l.Source == "mvgm" {
+		if d, err := s.RentalDetails(ctx, l.Source, l.ID); err == nil {
+			fmt.Printf("Service cost: €%.0f\nDeposit: €%.0f\nAvailable: %s\nIncome rule: %s\nRequired annual income: €%.0f\n", d.ServiceCost, d.Deposit, d.AvailableFrom, d.IncomeRule, d.RequiredIncome)
+		}
+	}
+	return nil
 }
 
 func normalizeCategory(v string) string {
@@ -242,10 +345,12 @@ func usage() {
 	fmt.Print(`funda - lightweight local housing search CLI
 
 Commands:
-  funda sync    --category rent|buy|newbuild|all [--sitemap URL]
-  funda enrich  --city utrecht --category rent --limit 25
-  funda search  [--city utrecht] [--category rent] [--unfetched|--fetched] [--max-price 2000] [--min-area 50]
-  funda view    <listing-id>
+  funda sync    --source funda --category rent|buy|newbuild|all [--sitemap URL]
+  funda sync    --source mvgm --city utrecht
+  funda enrich  --source funda --city utrecht --category rent --limit 25
+  funda enrich  --source mvgm --city utrecht --limit 25
+  funda search  --source all|funda|mvgm  [--city utrecht] [--category rent] [--unfetched|--fetched] [--max-price 2000] [--min-area 50]
+  funda view    [--source funda|mvgm] <listing-id>
 
 Environment:
   FUNDA_DB          SQLite path (default: ./funda.db)

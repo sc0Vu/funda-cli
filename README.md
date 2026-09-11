@@ -111,3 +111,13 @@ This makes the user-facing search fast and keeps remote requests explicit and ca
 - Add saved searches and favorites.
 - Add a Bubble Tea TUI.
 - Add provider abstraction for other Dutch housing sources.
+
+## MVGM integration
+
+MVGM / ikwilhuren.nu support has been added. See [MVGM.md](MVGM.md).
+
+```bash
+funda sync --source mvgm --city utrecht
+funda enrich --source mvgm --city utrecht --limit 50
+funda search --source mvgm --city utrecht --fetched --income 60000 --savings 50000
+```

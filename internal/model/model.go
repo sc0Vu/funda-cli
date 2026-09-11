@@ -8,6 +8,7 @@ import (
 )
 
 type ListingRef struct {
+	Source          string
 	ID              string
 	URL             string
 	City            string
@@ -18,6 +19,7 @@ type ListingRef struct {
 }
 
 type Listing struct {
+	Source          string  `json:"source"`
 	ID              string  `json:"id"`
 	URL             string  `json:"url"`
 	TransactionType string  `json:"transaction_type"`
@@ -39,6 +41,18 @@ type Listing struct {
 	LastSeenAt time.Time `json:"-"`
 }
 
+type RentalDetails struct {
+	Source           string  `json:"source"`
+	ListingID        string  `json:"listing_id"`
+	ServiceCost      float64 `json:"service_cost"`
+	Deposit          float64 `json:"deposit"`
+	AvailableFrom    string  `json:"available_from"`
+	IncomeRule       string  `json:"income_rule"`
+	IncomeMultiplier float64 `json:"income_multiplier"`
+	IncomeBasis      string  `json:"income_basis"`
+	RequiredIncome   float64 `json:"required_income"`
+	RawConditions    string  `json:"raw_conditions"`
+}
 type FundaListingResponse struct {
 	Identifiers        Identifiers        `json:"Identifiers"`
 	Price              Price              `json:"Price"`

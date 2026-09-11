@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/North-web-dev/impersonate-http"
+	"github.com/klauspost/compress/zstd"
 )
 
 type Client struct {
@@ -55,12 +56,12 @@ func (c *Client) Get(ctx context.Context, uri string, headers http.Header) ([]by
 		return nil, fmt.Errorf("request failed: %s", resp.Status)
 	}
 
-	var responseBody io.ReadCloser
+	var resReader io.Reader
 	contentEncoding := resp.Header.Get("Content-Encoding")
 	if !resp.Uncompressed {
 		switch contentEncoding {
 		case "":
-			responseBody = resp.Body
+			resReader = resp.Body
 			break
 		case "gzip":
 			gzReader, err := gzip.NewReader(resp.Body)
@@ -68,14 +69,21 @@ func (c *Client) Get(ctx context.Context, uri string, headers http.Header) ([]by
 				return nil, fmt.Errorf("create gzip reader: %w", err)
 			}
 			defer gzReader.Close()
-			responseBody = gzReader
+			resReader = gzReader
 			break
+		case "zstd":
+			zstdReader, err := zstd.NewReader(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			defer zstdReader.Close()
+			resReader = zstdReader
 		default:
 			return nil, fmt.Errorf("unknown content encoding: %s", contentEncoding)
 		}
 	}
 
-	body, err := io.ReadAll(responseBody)
+	body, err := io.ReadAll(resReader)
 	if err != nil {
 		return nil, err
 	}

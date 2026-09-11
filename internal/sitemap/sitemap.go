@@ -84,6 +84,7 @@ func parseURLSet(set urlSet, category string) []model.ListingRef {
 			continue
 		}
 		out = append(out, model.ListingRef{
+			Source:          "funda",
 			ID:              id,
 			URL:             item.Loc,
 			City:            cityFromURL(item.Loc),

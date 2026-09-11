@@ -288,6 +288,7 @@ func (s *Store) RentalDetails(ctx context.Context, source, id string) (model.Ren
 }
 
 type SearchQuery struct {
+	ID        string
 	Source    string
 	City      string
 	Category  string
@@ -301,6 +302,10 @@ type SearchQuery struct {
 func (s *Store) Search(ctx context.Context, q SearchQuery) ([]model.Listing, error) {
 	var where []string
 	var args []any
+	if q.ID != "" {
+		where = append(where, "r.id = ?")
+		args = append(args, q.ID)
+	}
 	if q.Source != "" && q.Source != "all" {
 		where = append(where, "r.source = ?")
 		args = append(args, q.Source)

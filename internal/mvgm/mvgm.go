@@ -27,7 +27,7 @@ var (
 	statusRE      = regexp.MustCompile(`(?i)Status\s*(Te huur|Verhuurd onder voorbehoud|Verhuurd)`)
 	availableRE   = regexp.MustCompile(`(?i)Beschikbaar vanaf\s*([^|]+?)(?:Complex|Plattegrond|Kenmerken|$)`)
 	addressRE     = regexp.MustCompile(`(?i)(?:Te huur|Verhuurd onder voorbehoud):\s*([^,]+),\s*([a-zA-ZÀ-ÿ' -]+)`)
-	rentRE        = regexp.MustCompile(`(?i)Huurprijs\s*€\s*([0-9][0-9.]*)\s*,?-?\s*/mnd`)
+	rentRE        = regexp.MustCompile(`(?:€|&euro;)(?:\s|&nbsp;)*([\d.]+)(?:,\d{2}|,-)?`)
 	serviceRE     = regexp.MustCompile(`(?i)Servicekosten\s*€\s*([0-9][0-9.]*)`)
 	depositRE     = regexp.MustCompile(`(?i)Waarborg\s*Vast inkomen:\s*€\s*([0-9][0-9.]*)`)
 	annual42RE    = regexp.MustCompile(`(?i)(?:bruto[- ]jaarinkomen).*?42x\s+de\s+kale\s+maandhuur`)
@@ -35,40 +35,106 @@ var (
 	genericMultRE = regexp.MustCompile(`(?i)([0-9]+(?:[,.][0-9]+)?)\s*(?:x|keer)\s+(?:de\s+)?(?:kale\s+)?maandhuur`)
 )
 
-func Sync(ctx context.Context, profile string, timeout time.Duration, city string) ([]model.ListingRef, error) {
+func Sync(
+	ctx context.Context,
+	profile string,
+	timeout time.Duration,
+	city string,
+) ([]model.ListingRef, error) {
 	if city == "" {
 		city = "utrecht"
 	}
+
 	c, err := client.NewClient(profile, timeout)
 	if err != nil {
 		return nil, err
 	}
-	u := fmt.Sprintf("%s/aanbod/%s/?lang=nl", baseURL, strings.ToLower(city))
-	body, err := c.Get(ctx, u, defaultHeaders())
-	if err != nil {
-		return nil, err
+
+	city = strings.ToLower(city)
+
+	now := time.Now().UTC()
+	seen := make(map[string]bool)
+	refs := make([]model.ListingRef, 0)
+
+	const maxPages = 200
+
+	for page := 1; page <= maxPages; page++ {
+		var u string
+
+		if page == 1 {
+			u = fmt.Sprintf(
+				"%s/aanbod/%s/?lang=nl",
+				baseURL,
+				city,
+			)
+		} else {
+			u = fmt.Sprintf(
+				"%s/aanbod/%s/?lang=nl&page=%d",
+				baseURL,
+				city,
+				page,
+			)
+		}
+
+		body, err := c.Get(ctx, u, defaultHeaders())
+		if err != nil {
+			return nil, fmt.Errorf(
+				"MVGM sync page %d: %w",
+				page,
+				err,
+			)
+		}
+
+		matches := objectHrefRE.FindAllStringSubmatch(
+			string(body),
+			-1,
+		)
+
+		// No listing links means we've reached the end.
+		if len(matches) == 0 {
+			break
+		}
+
+		newOnPage := 0
+
+		for _, m := range matches {
+			path := html.UnescapeString(m[1])
+			path = strings.TrimSuffix(path, "/") + "/"
+
+			id := ListingID(path)
+			if id == "" || seen[id] {
+				continue
+			}
+
+			seen[id] = true
+			newOnPage++
+
+			refs = append(refs, model.ListingRef{
+				Source:          "mvgm",
+				ID:              id,
+				URL:             baseURL + path,
+				City:            city,
+				TransactionType: "rent",
+				FirstSeenAt:     now,
+				LastSeenAt:      now,
+			})
+		}
+
+		// Some sites repeat the last page or redirect out-of-range
+		// page numbers back to an existing page.
+		// Stop if this page gave us no new listing IDs.
+		if newOnPage == 0 {
+			break
+		}
 	}
 
-	matches := objectHrefRE.FindAllStringSubmatch(string(body), -1)
-	now := time.Now().UTC()
-	seen := map[string]bool{}
-	refs := make([]model.ListingRef, 0, len(matches))
-	for _, m := range matches {
-		path := html.UnescapeString(m[1])
-		path = strings.TrimSuffix(path, "/") + "/"
-		id := ListingID(path)
-		if id == "" || seen[id] {
-			continue
-		}
-		seen[id] = true
-		refs = append(refs, model.ListingRef{
-			Source: "mvgm", ID: id, URL: baseURL + path, City: city,
-			TransactionType: "rent", FirstSeenAt: now, LastSeenAt: now,
-		})
-	}
 	if len(refs) == 0 {
-		return nil, fmt.Errorf("MVGM: no listing links found at %s", u)
+		return nil, fmt.Errorf(
+			"MVGM: no listing links found for city %s",
+			city,
+		)
 	}
+
 	return refs, nil
 }
 

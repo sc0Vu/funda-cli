@@ -42,6 +42,8 @@ func (a App) Run(ctx context.Context, args []string) error {
 		return runSearch(ctx, s, args[1:])
 	case "view":
 		return runView(ctx, s, args[1:])
+	case "fetch":
+		return runFetch(ctx, s, args[1:])
 	case "help", "-h", "--help":
 		usage()
 		return nil
@@ -277,7 +279,7 @@ func runView(ctx context.Context, s *store.Store, args []string) error {
 		return fmt.Errorf("usage: funda view [--source funda|mvgm] <listing-id>")
 	}
 	id := fs.Arg(0)
-	items, err := s.Search(ctx, store.SearchQuery{Source: strings.ToLower(*source), Limit: 10000})
+	items, err := s.Search(ctx, store.SearchQuery{ID: id, Source: strings.ToLower(*source), Limit: 1})
 	if err != nil {
 		return err
 	}
@@ -306,6 +308,63 @@ func runView(ctx context.Context, s *store.Store, args []string) error {
 			fmt.Printf("Service cost: €%.0f\nDeposit: €%.0f\nAvailable: %s\nIncome rule: %s\nRequired annual income: €%.0f\n", d.ServiceCost, d.Deposit, d.AvailableFrom, d.IncomeRule, d.RequiredIncome)
 		}
 	}
+	return nil
+}
+
+func runFetch(ctx context.Context, s *store.Store, args []string) error {
+	fs := flag.NewFlagSet("fetch", flag.ContinueOnError)
+	source := fs.String("source", "all", "funda, mvgm, or all")
+	profile := fs.String("profile", "chrome", "Chrome, ChromeAndroid, Firefox, Safari, Edge, IOS")
+	timeout := fs.Duration("timeout", 30*time.Second, "HTTP request timeout")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 1 {
+		return fmt.Errorf("usage: funda fetch [--source funda|mvgm] <listing-id>")
+	}
+	id := fs.Arg(0)
+	r, err := s.GetRef(ctx, strings.ToLower(*source), id)
+	if err != nil {
+		return err
+	}
+	switch strings.ToLower(*source) {
+	case "funda":
+		l, err := enrich.Fetch(ctx, *profile, *timeout, r.ID)
+		if err != nil {
+			return err
+		}
+		l.Source = "funda"
+		l.ID = sitemap.ListingID(r.URL)
+		if l.ID == "" {
+			l.ID = r.ID
+		}
+		if l.URL == "" {
+			l.URL = r.URL
+		}
+		if l.City == "" {
+			l.City = r.City
+		}
+		if l.TransactionType == "" {
+			l.TransactionType = r.TransactionType
+		}
+		if err := s.UpsertListing(ctx, l); err != nil {
+			return err
+		}
+	case "mvgm":
+		l, d, err := mvgm.Fetch(ctx, *profile, *timeout, r)
+		if err != nil {
+			return err
+		}
+		if err := s.UpsertListing(ctx, l); err != nil {
+			return err
+		}
+		if err := s.UpsertRentalDetails(ctx, d); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unknown source %q (use funda or mvgm)", *source)
+	}
+	fmt.Printf("fetched %s from %s\n", id, strings.ToLower(*source))
 	return nil
 }
 
@@ -351,6 +410,7 @@ Commands:
   funda enrich  --source mvgm --city utrecht --limit 25
   funda search  --source all|funda|mvgm  [--city utrecht] [--category rent] [--unfetched|--fetched] [--max-price 2000] [--min-area 50]
   funda view    [--source funda|mvgm] <listing-id>
+  funda fetch    [--source funda|mvgm] <listing-id> fetch a single listing for debuging purpose
 
 Environment:
   FUNDA_DB          SQLite path (default: ./funda.db)

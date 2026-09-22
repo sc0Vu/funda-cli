@@ -121,3 +121,15 @@ funda sync --source mvgm --city utrecht
 funda enrich --source mvgm --city utrecht --limit 50
 funda search --source mvgm --city utrecht --fetched --income 60000 --savings 50000
 ```
+
+## Terminal map
+
+Fetched listings with latitude/longitude can be rendered as a Unicode Braille map using live OpenStreetMap data from the Overpass API:
+
+```bash
+./funda map --source funda 12345678
+./funda map --source mvgm --radius 800 --width 100 --height 30 some-listing-id
+./funda view --source funda --map 12345678
+```
+
+The renderer requests nearby roads, buildings, waterways, water, parks, and grass areas and rasterizes their real OSM geometry into a 2x4-dot Braille canvas per terminal cell. The property is marked by a cross at the center. `--radius` is in meters. Map rendering requires network access; normal local search/view behavior remains offline unless `--map` or the `map` command is used.

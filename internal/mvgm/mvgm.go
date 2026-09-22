@@ -33,6 +33,8 @@ var (
 	annual42RE    = regexp.MustCompile(`(?i)(?:bruto[- ]jaarinkomen).*?42x\s+de\s+kale\s+maandhuur`)
 	monthly35RE   = regexp.MustCompile(`(?i)(?:bruto[- ]maandinkomen).*?(?:3[,.]5|3\.5)\s*(?:x|keer).*?(?:huurprijs|kale maandhuur)`)
 	genericMultRE = regexp.MustCompile(`(?i)([0-9]+(?:[,.][0-9]+)?)\s*(?:x|keer)\s+(?:de\s+)?(?:kale\s+)?maandhuur`)
+	latitudeRE    = regexp.MustCompile(`(?i)["']?latitude["']?\s*[:=]\s*["']?(-?[0-9]+(?:\.[0-9]+)?)`)
+	longitudeRE   = regexp.MustCompile(`(?i)["']?longitude["']?\s*[:=]\s*["']?(-?[0-9]+(?:\.[0-9]+)?)`)
 )
 
 func Sync(
@@ -147,7 +149,8 @@ func Fetch(ctx context.Context, profile string, timeout time.Duration, ref model
 	if err != nil {
 		return model.Listing{}, model.RentalDetails{}, err
 	}
-	text := normalizeText(string(body))
+	raw := string(body)
+	text := normalizeText(raw)
 
 	l := model.Listing{Source: "mvgm", ID: ref.ID, URL: ref.URL, City: ref.City, TransactionType: "rent", FetchedAt: time.Now().UTC().Format(time.RFC3339)}
 	d := model.RentalDetails{Source: "mvgm", ListingID: ref.ID, RawConditions: extractIncomeBlock(text)}
@@ -159,6 +162,8 @@ func Fetch(ctx context.Context, profile string, timeout time.Duration, ref model
 		}
 	}
 	l.Price = parseFirstNumber(rentRE, text)
+	l.Latitude = parseCoordinate(latitudeRE, raw)
+	l.Longitude = parseCoordinate(longitudeRE, raw)
 	d.ServiceCost = parseFirstNumber(serviceRE, text)
 	d.Deposit = parseFirstNumber(depositRE, text)
 	if m := areaRE.FindStringSubmatch(text); len(m) > 0 {
@@ -252,6 +257,14 @@ func parseFirstNumber(re *regexp.Regexp, s string) float64 {
 	}
 	return 0
 }
+func parseCoordinate(re *regexp.Regexp, s string) float64 {
+	if m := re.FindStringSubmatch(s); len(m) > 1 {
+		f, _ := strconv.ParseFloat(m[1], 64)
+		return f
+	}
+	return 0
+}
+
 func parseDutchFloat(v string) float64 {
 	v = strings.ReplaceAll(v, ".", "")
 	v = strings.ReplaceAll(v, ",", ".")

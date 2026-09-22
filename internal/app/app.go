@@ -314,7 +314,7 @@ func runView(ctx context.Context, s *store.Store, args []string) error {
 	}
 	if *showMap {
 		fmt.Println("\nMap (OpenStreetMap):")
-		m, err := termmap.Render(ctx, termmap.Options{Lat: l.Latitude, Lon: l.Longitude, Width: 80, Height: 24})
+		m, err := termmap.Render(ctx, termmap.Options{Lat: l.Latitude, Lon: l.Longitude, Width: 90, Height: 26, RadiusMeters: 450, Color: true})
 		if err != nil {
 			return err
 		}
@@ -326,14 +326,16 @@ func runView(ctx context.Context, s *store.Store, args []string) error {
 func runMap(ctx context.Context, s *store.Store, args []string) error {
 	fs := flag.NewFlagSet("map", flag.ContinueOnError)
 	source := fs.String("source", "all", "funda, mvgm, or all")
-	width := fs.Int("width", 80, "map width in terminal columns")
-	height := fs.Int("height", 24, "map height in terminal rows")
-	radius := fs.Float64("radius", 600, "map radius around the property in meters")
+	width := fs.Int("width", 90, "map width in terminal columns")
+	height := fs.Int("height", 26, "map height in terminal rows")
+	radius := fs.Float64("radius", 450, "map radius around the property in meters")
+	buildings := fs.Bool("buildings", false, "include building outlines (denser and slower)")
+	noColor := fs.Bool("no-color", false, "disable ANSI map colors")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if fs.NArg() != 1 {
-		return fmt.Errorf("usage: funda map [--source funda|mvgm] [--width 80] [--height 24] [--radius 600] <listing-id>")
+		return fmt.Errorf("usage: funda map [--source funda|mvgm] [--width 90] [--height 26] [--radius 450] [--buildings] [--no-color] <listing-id>")
 	}
 	id := fs.Arg(0)
 	items, err := s.Search(ctx, store.SearchQuery{ID: id, Source: strings.ToLower(*source), Limit: 2})
@@ -355,12 +357,12 @@ func runMap(ctx context.Context, s *store.Store, args []string) error {
 	l := matches[0]
 	fmt.Printf("%s, %s  (%.5f, %.5f)\n", l.Address, l.City, l.Latitude, l.Longitude)
 	fmt.Println("OpenStreetMap:")
-	m, err := termmap.Render(ctx, termmap.Options{Lat: l.Latitude, Lon: l.Longitude, Width: *width, Height: *height, RadiusMeters: *radius})
+	m, err := termmap.Render(ctx, termmap.Options{Lat: l.Latitude, Lon: l.Longitude, Width: *width, Height: *height, RadiusMeters: *radius, Buildings: *buildings, Color: !*noColor})
 	if err != nil {
 		return err
 	}
 	fmt.Print(m)
-	fmt.Println("center cross = property")
+
 	return nil
 }
 
@@ -463,7 +465,7 @@ Commands:
   funda enrich  --source mvgm --city utrecht --limit 25
   funda search  --source all|funda|mvgm  [--city utrecht] [--category rent] [--unfetched|--fetched] [--max-price 2000] [--min-area 50]
   funda view    [--source funda|mvgm] [--map] <listing-id>
-  funda map     [--source funda|mvgm] [--width 80] [--height 24] [--radius 600] <listing-id>
+  funda map     [--source funda|mvgm] [--width 90] [--height 26] [--radius 450] [--buildings] [--no-color] <listing-id>
   funda fetch    [--source funda|mvgm] <listing-id> fetch a single listing for debuging purpose
 
 Environment:

@@ -24,13 +24,63 @@ func TestRender(t *testing.T) {
 	if !strings.ContainsAny(got, "⠁⠂⠄⡀⢀⣀⣿") {
 		t.Fatalf("expected braille map, got %q", got)
 	}
-	if lines := strings.Count(got, "\n"); lines != 8 {
-		t.Fatalf("got %d lines, want 8", lines)
+	if lines := strings.Count(got, "\n"); lines != 9 {
+		t.Fatalf("got %d lines, want 9 (8 map + legend)", lines)
 	}
 }
 
 func TestRenderRequiresCoordinates(t *testing.T) {
 	if _, err := Render(context.Background(), Options{}); err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestFetchFallsBackToNextEndpoint(t *testing.T) {
+	calls := 0
+	body := `{"elements":[{"type":"way","tags":{"highway":"primary"},"geometry":[{"lat":52.09,"lon":5.115},{"lat":52.09,"lon":5.127}]}]}`
+	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		if calls == 1 {
+			return &http.Response{StatusCode: 504, Status: "504 Gateway Timeout", Body: io.NopCloser(strings.NewReader("timeout")), Header: make(http.Header)}, nil
+		}
+		return &http.Response{StatusCode: 200, Status: "200 OK", Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}, nil
+	})}
+	old := defaultEndpoints
+	defaultEndpoints = []string{"https://first.test", "https://second.test"}
+	defer func() { defaultEndpoints = old }()
+
+	got, err := Render(context.Background(), Options{Lat: 52.09, Lon: 5.121, Width: 20, Height: 8, RadiusMeters: 450, Client: client})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 {
+		t.Fatalf("got %d requests, want fallback request", calls)
+	}
+	if !strings.Contains(got, "Legend:") {
+		t.Fatalf("expected rendered map after fallback, got %q", got)
+	}
+}
+
+func TestBuildingsAreOptIn(t *testing.T) {
+	var requestBody string
+	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		b, _ := io.ReadAll(r.Body)
+		requestBody = string(b)
+		return &http.Response{StatusCode: 200, Status: "200 OK", Body: io.NopCloser(strings.NewReader(`{"elements":[]}`)), Header: make(http.Header)}, nil
+	})}
+	_, err := Render(context.Background(), Options{Lat: 52.09, Lon: 5.121, Client: client, Endpoint: "https://example.test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(requestBody, `%22building%22`) || strings.Contains(requestBody, `"building"`) {
+		t.Fatalf("default query unexpectedly requests buildings: %s", requestBody)
+	}
+
+	_, err = Render(context.Background(), Options{Lat: 52.09, Lon: 5.121, Buildings: true, Client: client, Endpoint: "https://example.test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(requestBody, "building") {
+		t.Fatalf("--buildings query does not request buildings: %s", requestBody)
 	}
 }

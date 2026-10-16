@@ -35,6 +35,8 @@ func (a App) Run(ctx context.Context, args []string) error {
 	defer s.Close()
 
 	switch args[0] {
+	case "game":
+		return runGame(ctx, s, args[1:])
 	case "sync":
 		return runSync(ctx, s, args[1:])
 	case "enrich":
@@ -459,6 +461,8 @@ func usage() {
 	fmt.Print(`funda - lightweight local housing search CLI
 
 Commands:
+  funda game guess  --mode buy|rent [--city utrecht] [--rounds 5] [--seed 42]
+  funda game hunter --mode buy|rent [--city utrecht] [--budget 375000] [--income 4500] [--income-multiplier 3]
   funda sync    --source funda --category rent|buy|newbuild|all [--sitemap URL]
   funda sync    --source mvgm --city utrecht
   funda enrich  --source funda --city utrecht --category rent --limit 25

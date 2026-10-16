@@ -133,3 +133,63 @@ Fetched listings with latitude/longitude can be rendered as a Unicode Braille ma
 ```
 
 The renderer requests nearby roads, buildings, waterways, water, parks, and grass areas and rasterizes their real OSM geometry into a 2x4-dot Braille canvas per terminal cell. The property is marked by a cross at the center. `--radius` is in meters. Map rendering requires network access; normal local search/view behavior remains offline unless `--map` or the `map` command is used.
+
+## Games (experimental, offline)
+
+Funda CLI includes two local games, each supporting **buy** and **rent**:
+
+- **Guess the Price:** Estimate the advertised asking price or monthly rent. Prices and source listing URLs are hidden until you submit your guess. Optional Detective hints cost 100 points.
+- **House Hunter:** Explore cached properties, schedule viewings, perform **fictional** inspections, and make simulated buying offers or rental applications. No real offers or applications are sent.
+
+Games use enriched listings already stored in the local SQLite database. Run `sync` and `enrich` first; games do not fetch fresh property data.
+
+```bash
+# Five-round guessing games
+./funda game guess --mode buy --city utrecht
+./funda game guess --mode rent --city utrecht --detective
+
+# Daily guessing challenges (UTC-based seed)
+./funda game guess --mode buy --city utrecht --daily
+./funda game guess --mode rent --city utrecht --daily
+
+# House Hunter: buying and renting
+./funda game hunter --mode buy --city utrecht --budget 375000
+./funda game hunter --mode rent --city utrecht --income 4500 --income-multiplier 3
+```
+
+### Daily challenges
+
+`--daily` generates a deterministic seed from the UTC date, city, game, and mode. **This does not guarantee identical properties for different players**: rounds are selected from each player's local database. Scores should only be compared when datasets match. There is no online leaderboard or globally synchronized daily challenge.
+
+### Saving progress and scores
+
+Completed game results are saved to a local history file **by default**. House Hunter also checkpoints progress so you can quit and resume later.
+
+```bash
+./funda game hunter --mode buy --city utrecht
+./funda game hunter --mode buy --city utrecht --resume
+./funda game hunter --mode buy --city utrecht --restart
+
+# Disable local saving, or override its location
+./funda game guess --mode buy --no-save
+./funda game guess --mode buy --history-file ./game-history.json
+./funda game hunter --mode buy --save-file ./hunter-save.json
+```
+
+The default history location is `~/.local/share/funda/game-history.json` on Linux, `~/Library/Application Support/funda/game-history.json` on macOS, and `%AppData%\funda\game-history.json` on Windows. House Hunter saves beside the default history file. Resume validates the saved property sequence and asking prices; if the local database has changed, restart the game instead.
+
+### Controls and images
+
+In House Hunter, use `v` for viewing, `i` for a fictional inspection, `e` for cached details, `a` for a simulated bid/application, `s` to skip, and `o` to open the original listing in a browser. The simulation has a 20-turn limit.
+
+Optional photo URLs can be supplied using `--photos-file`; the game currently displays **links**, not native inline photos. `--image-mode auto|kitty|iterm2|link|none` selects the image capability preference, but actual inline listing-image integration is not yet implemented. Automatic photo extraction is deferred.
+
+### Test and limitations
+
+```bash
+go test ./...
+go test -race ./...
+go build -o funda ./cmd/funda
+```
+
+Inspections, rival bids, and rental-selection outcomes are fictional. They must not be used to assess actual property condition, valuation, or application chances. The complete application test suite still requires verification in the project's configured Go environment. See [GAMES.md](GAMES.md) for more details and [RELEASE_CANDIDATE.md](RELEASE_CANDIDATE.md) for release status.

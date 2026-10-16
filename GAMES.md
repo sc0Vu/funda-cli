@@ -4,6 +4,15 @@ The `game` subcommand uses locally enriched listing records. It does not submit
 real bids or rental applications. Simulated inspections, rival bids, and rental
 lotteries are fictional; they are **not** claims about real listings or landlords.
 
+## Demo
+### funda guess
+<img width="1099" height="448" alt="image" src="https://github.com/user-attachments/assets/cd1d9a10-40e6-4f9c-9d45-b73aaa67ccc2" />
+
+### funda hunter
+<img width="1104" height="486" alt="image" src="https://github.com/user-attachments/assets/de26f207-173e-463d-b3b8-656b07e3ed98" />
+
+
+
 ## Setup
 
 Run your normal `sync` and `enrich` workflow first. The games need listings with

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#090d13" />
+  <meta name="description" content="funda-cli — a local-first Dutch housing monitor with smart listing checks, SQLite history, and instant alerts." />
+  <meta property="og:title" content="funda-cli — Find your next place, faster." />
+  <meta property="og:description" content="Monitor Dutch housing listings from your terminal. Filter, track changes, and get notified." />
+  <title>funda-cli — Your next home, one command away.</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="./script.js" defer></script>
+</head>
+<body>
+  <div class="noise" aria-hidden="true"></div>
+  <header class="site-header" id="top">
+    <div class="container nav-wrap">
+      <a class="brand" href="#top" aria-label="funda-cli home"><span class="brand-mark">⌂</span><span>funda<span class="brand-muted">.cli</span></span></a>
+      <nav class="desktop-nav" aria-label="Main navigation">
+        <a href="#features">Features</a><a href="#workflow">How it works</a><a href="#install">Get started</a>
+      </nav>
+      <a class="nav-github" href="https://github.com/sc0vu/funda-cli" target="_blank" rel="noopener noreferrer" aria-label="View funda-cli on GitHub">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .9a11.1 11.1 0 0 0-3.51 21.63c.56.1.76-.24.76-.54v-2.1c-3.1.68-3.76-1.32-3.76-1.32-.5-1.28-1.24-1.62-1.24-1.62-1.01-.69.08-.68.08-.68 1.12.08 1.71 1.15 1.71 1.15 1 .1.76 1.83 3.23 1.3.1-.73.39-1.23.71-1.52-2.47-.28-5.06-1.24-5.06-5.49 0-1.21.43-2.2 1.14-2.98-.12-.28-.5-1.41.11-2.94 0 0 .93-.3 3.05 1.14a10.5 10.5 0 0 1 5.55 0c2.12-1.44 3.05-1.14 3.05-1.14.61 1.53.23 2.66.11 2.94.71.78 1.14 1.77 1.14 2.98 0 4.26-2.59 5.2-5.07 5.48.4.35.76 1.02.76 2.06v3.05c0 .3.2.65.77.54A11.1 11.1 0 0 0 12 .9Z"/></svg>
+        <span>GitHub</span><span class="arrow">↗</span>
+      </a>
+    </div>
+  </header>
+  <main>
+    <section class="hero container" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <div class="eyebrow"><span class="pulse-dot"></span> OPEN SOURCE · BUILT WITH GO</div>
+        <h1 id="hero-title">Less refreshing.<br/><span class="gradient-text">More finding.</span></h1>
+        <p class="hero-lede">Your Dutch housing search, on autopilot. Discover new listings, track changes, and get the alert before you miss the opportunity.</p>
+        <div class="hero-actions"><a class="btn btn-primary" href="#install">Get started <span>↗</span></a><a class="btn btn-secondary" href="https://github.com/sc0vu/funda-cli" target="_blank" rel="noopener noreferrer">Explore the code <span>↗</span></a></div>
+        <div class="hero-facts"><span><i class="check">✓</i> Local-first</span><span><i class="check">✓</i> SQLite-powered</span><span><i class="check">✓</i> Self-hosted</span></div>
+      </div>
+      <div class="hero-visual" aria-label="Illustration of a terminal monitoring housing listings">
+        <div class="orb orb-one"></div><div class="orb orb-two"></div>
+        <div class="terminal-window">
+          <div class="terminal-top"><div class="traffic"><i></i><i></i><i></i></div><span>funda-cli — monitor</span><span class="terminal-icon">⌘</span></div>
+          <div class="terminal-content">
+            <div class="prompt"><span>➜</span> <span class="path">~/funda-cli</span> <strong>funda watch</strong></div>
+            <div class="term-muted">Initializing listing monitor...</div>
+            <div class="term-line"><span class="term-ok">✓</span> Database connected <span class="term-faint">sqlite</span></div>
+            <div class="term-line"><span class="term-ok">✓</span> Watch rules loaded <span class="term-faint">2 active</span></div>
+            <div class="term-line"><span class="term-ok">✓</span> Sources ready <span class="term-faint">Funda · MVGM</span></div>
+            <div class="term-divider"></div>
+            <div class="term-scan"><span class="term-blue">◉</span> Scanning Utrecht rentals <span class="term-faint">just now</span></div>
+            <div class="listing"><div class="listing-symbol">⌂</div><div class="listing-main"><strong>New listing discovered</strong><span>Utrecht · Apartment · 62 m²</span></div><div class="listing-price">€1,450<span>/mo</span></div></div>
+            <div class="term-notify"><span>↗</span> Telegram notification queued <span class="term-ok">✓</span></div>
+            <div class="term-cursor">Monitoring for changes <span class="cursor"></span></div>
+          </div>
+        </div>
+        <div class="floating-chip"><span class="chip-icon">↗</span><span><strong>Stay ahead.</strong><small>Get notified, not overwhelmed.</small></span></div>
+      </div>
+    </section>
+    <section class="trust-strip" aria-label="Project highlights"><div class="container strip-inner"><span>BUILT FOR THE SEARCH</span><span>⌘ &nbsp; TERMINAL FIRST</span><span>◈ &nbsp; YOUR DATA, YOUR MACHINE</span><span>↗ &nbsp; NOTIFICATIONS THAT MATTER</span></div></section>
+    <section class="section container" id="features"><div class="section-heading"><div class="section-kicker">THE TOOLKIT</div><h2>Everything you need.<br/><span>Nothing you don't.</span></h2><p>A focused toolkit to turn scattered housing listings into one streamlined search.</p></div>
+      <div class="feature-grid">
+        <article class="feature-card feature-wide"><div class="feature-icon icon-lime">⌕</div><h3>Discover what's new</h3><p>Scan housing listing sources and bring new properties into one searchable local database.</p><div class="mini-visual"><span class="mini-line"><b class="mini-dot"></b> Utrecht <em>NEW</em></span><span class="mini-line"><b class="mini-dot muted"></b> Amsterdam <em>TRACKING</em></span><span class="mini-line"><b class="mini-dot muted"></b> Rotterdam <em>TRACKING</em></span></div></article>
+        <article class="feature-card"><div class="feature-icon icon-purple">◎</div><h3>Filters that fit</h3><p>Search by city, rental price, area, and more. Focus on places that actually match.</p><div class="filter-tags"><span>City: Utrecht</span><span>Rent ≤ €1,600</span><span>Apartment</span></div></article>
+        <article class="feature-card"><div class="feature-icon icon-blue">↗</div><h3>Alerts, not noise</h3><p>Send matching discoveries through Telegram, email, or webhooks—with delivery history.</p><div class="feature-bottom">TELEGRAM <span>↗</span> EMAIL <span>↗</span> WEBHOOK</div></article>
+        <article class="feature-card"><div class="feature-icon icon-orange">◷</div><h3>Remember every change</h3><p>Keep listing history, check availability, and detect price changes or reopened listings.</p><div class="feature-bottom">HISTORY <span>·</span> STATUS <span>·</span> REOPENED</div></article>
+        <article class="feature-card"><div class="feature-icon icon-green">▣</div><h3>Own your stack</h3><p>Go, SQLite, and Docker. No mandatory cloud database or third-party dashboard.</p><div class="feature-bottom">GO <span>·</span> SQLITE <span>·</span> DOCKER</div></article>
+      </div>
+    </section>
+    <section class="workflow-section" id="workflow"><div class="container workflow-layout"><div><div class="section-kicker">HOW IT WORKS</div><h2>From listing<br/>to <span class="gradient-text">living.</span></h2><p class="workflow-intro">A simple pipeline that keeps your housing search organized while you focus on everything else.</p><a href="#install" class="text-link">Try it yourself <span>↗</span></a></div><div class="steps"><div class="step"><span class="step-number">01</span><div><h3>Discover</h3><p>Find listing references from supported sources.</p></div><span class="step-symbol">⌕</span></div><div class="step"><span class="step-number">02</span><div><h3>Enrich & filter</h3><p>Fetch details and apply your watch rules.</p></div><span class="step-symbol">☷</span></div><div class="step"><span class="step-number">03</span><div><h3>Track changes</h3><p>Save lifecycle and notification state locally.</p></div><span class="step-symbol">◷</span></div><div class="step"><span class="step-number">04</span><div><h3>Get notified</h3><p>Receive alerts when a relevant event is detected.</p></div><span class="step-symbol">↗</span></div></div></div></section>
+    <section class="section container install-section" id="install"><div class="section-heading"><div class="section-kicker">GET STARTED</div><h2>Ready when you are<span class="period">.</span></h2><p>Run locally, or deploy your own always-on watcher with Docker Compose.</p></div><div class="install-layout"><div class="install-info"><div class="install-point"><span>01</span><div><strong>Clone the project</strong><p>Grab the open-source Go CLI from GitHub.</p></div></div><div class="install-point"><span>02</span><div><strong>Configure your watches</strong><p>Set your cities, filters, and notification credentials.</p></div></div><div class="install-point"><span>03</span><div><strong>Start monitoring</strong><p>Run on your machine or an always-on Docker host.</p></div></div></div><div class="code-panel"><div class="code-panel-header"><div class="code-tabs" role="tablist" aria-label="Installation method"><button type="button" class="code-tab active" role="tab" aria-selected="true" data-tab="docker">Docker</button><button type="button" class="code-tab" role="tab" aria-selected="false" data-tab="go">Go CLI</button></div><button class="copy-btn" id="copy-command" type="button" aria-label="Copy installation commands">Copy <span>⧉</span></button></div><pre><code id="install-code"><span class="code-comment"># Clone the repository</span>
+git clone https://github.com/sc0vu/funda-cli.git
+cd funda-cli
+
+<span class="code-comment"># Create your local configuration</span>
+cp examples/monitor.json monitor.json
+mkdir -p data
+
+<span class="code-comment"># Configure your credentials, then launch</span>
+docker compose up -d --build</code></pre><div class="code-foot"><span class="green-dot"></span> Linux · macOS · ARM64 · AMD64</div></div></div></section>
+    <section class="cta-section container"><div class="cta-card"><div class="cta-glow"></div><div class="cta-content"><div class="section-kicker">OPEN SOURCE. OPEN POSSIBILITIES.</div><h2>Find a place worth<br/>calling <em>home.</em></h2><p>Built for people who would rather automate the search than refresh another tab.</p><a class="btn btn-dark" href="https://github.com/sc0vu/funda-cli" target="_blank" rel="noopener noreferrer">View on GitHub <span>↗</span></a></div><div class="cta-decoration" aria-hidden="true">⌂</div></div></section>
+  </main>
+  <footer class="footer"><div class="container footer-inner"><a class="brand" href="#top"><span class="brand-mark">⌂</span><span>funda<span class="brand-muted">.cli</span></span></a><span>Made with Go. Built for the search.</span><a href="https://github.com/sc0vu/funda-cli" target="_blank" rel="noopener noreferrer">GitHub ↗</a></div><div class="container disclaimer">Independent open-source project. Not affiliated with Funda or MVGM. Listings and features shown in illustrations are examples, not live data.</div></footer>
+</body>
+</html>

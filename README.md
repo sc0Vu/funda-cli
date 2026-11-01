@@ -1,5 +1,7 @@
 # funda-cli v0.1
 
+**Project website:** https://sc0vu.github.io/funda-cli/ (GitHub Pages; see [`site/README.md`](site/README.md) for setup).
+
 A lightweight local CLI for personal Dutch housing research.
 
 The first version deliberately separates three concerns:
@@ -12,7 +14,7 @@ The bundled enrichment adapter calls Funda API, thanks for `pyfunda`. Funda does
 
 ## Requirements
 
-- Go 1.23+
+- Go 1.25+
 
 ## Build
 

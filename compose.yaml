@@ -1,0 +1,19 @@
+services:
+  funda:
+    build: .
+    restart: unless-stopped
+    init: true
+    environment:
+      FUNDA_DB: /data/funda.db
+      FUNDA_HEALTH_FILE: /data/last-successful-check
+      TZ: Europe/Amsterdam
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      FUNDA_WEBHOOK_URL: ${FUNDA_WEBHOOK_URL:-}
+    volumes:
+      - ./data:/data
+      - ./monitor.json:/config/monitor.json:ro
+    # No HTTP ports are needed for the Oracle VM deployment.
+    # Docker healthcheck is defined in Dockerfile.

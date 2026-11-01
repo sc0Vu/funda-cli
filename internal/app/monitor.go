@@ -54,7 +54,12 @@ func runMonitor(ctx context.Context, s *store.Store, command string, args []stri
 	if err := s.InitNotifications(); err != nil {
 		return err
 	}
-	run := func() error { return checkCycle(ctx, s, c, *noNotify) }
+	run := func() error {
+		if err := checkCycle(ctx, s, c, *noNotify); err != nil {
+			return err
+		}
+		return writeMonitorHeartbeat(os.Getenv("FUNDA_HEALTH_FILE"))
+	}
 	if command == "check" {
 		return run()
 	}
@@ -320,6 +325,22 @@ func runWatchList(args []string) error {
 	sort.Strings(names)
 	for _, name := range names {
 		fmt.Printf("  %s (%s)\n", name, c.Providers[name].Type)
+	}
+	return nil
+}
+
+// writeMonitorHeartbeat atomically records the most recent successful monitoring cycle.
+func writeMonitorHeartbeat(path string) error {
+	if path == "" {
+		return nil
+	}
+	temp := path + ".tmp"
+	if err := os.WriteFile(temp, []byte(time.Now().UTC().Format(time.RFC3339Nano)+"\n"), 0600); err != nil {
+		return fmt.Errorf("write monitoring heartbeat: %w", err)
+	}
+	if err := os.Rename(temp, path); err != nil {
+		os.Remove(temp)
+		return fmt.Errorf("commit monitoring heartbeat: %w", err)
 	}
 	return nil
 }

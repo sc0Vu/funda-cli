@@ -15,6 +15,13 @@ import (
 	"github.com/klauspost/compress/zstd"
 )
 
+type HTTPStatusError struct {
+	Code   int
+	Status string
+}
+
+func (e *HTTPStatusError) Error() string { return "request failed: " + e.Status }
+
 type Client struct {
 	HTTP *http.Client
 }
@@ -53,7 +60,7 @@ func (c *Client) Get(ctx context.Context, uri string, headers http.Header) ([]by
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("request failed: %s", resp.Status)
+		return nil, &HTTPStatusError{Code: resp.StatusCode, Status: resp.Status}
 	}
 
 	var resReader io.Reader

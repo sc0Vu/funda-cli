@@ -1,0 +1,10 @@
+[Unit]
+Description=Funda CLI property check
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/funda check --config /home/USER/.config/funda/monitor.json
+WorkingDirectory=/home/USER
+Environment=FUNDA_DB=/home/USER/.local/share/funda/funda.db
+# Configure credentials with a protected EnvironmentFile, not directly in this unit.
+EnvironmentFile=/home/USER/.config/funda/secrets.env

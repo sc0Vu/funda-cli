@@ -193,3 +193,36 @@ go build -o funda ./cmd/funda
 ```
 
 Inspections, rival bids, and rental-selection outcomes are fictional. They must not be used to assess actual property condition, valuation, or application chances. The complete application test suite still requires verification in the project's configured Go environment. See [GAMES.md](GAMES.md) for more details and [RELEASE_CANDIDATE.md](RELEASE_CANDIDATE.md) for release status.
+
+## Property monitoring (experimental)
+
+The `check` and `watch` commands fetch/sync source listings, refresh missing or stale
+property details, match configured watches and deliver notifications. They use the
+same SQLite database as the existing CLI. Configuration is JSON (see
+`examples/monitor.json`). Environment variables hold credentials; do not store
+Telegram bot tokens in the config file.
+
+```sh
+export TELEGRAM_BOT_TOKEN='...'
+export TELEGRAM_CHAT_ID='...'
+funda notify test --config examples/monitor.json --provider telegram_personal
+funda check --config examples/monitor.json
+funda watch --config examples/monitor.json
+```
+
+Use `funda check` from cron or a systemd timer; `watch` is a long-running
+process. Do not run concurrent checks against the same database. The first
+successful check establishes a baseline when `notify_existing` is false. Each
+watch can name multiple providers, and delivery status is stored per
+watch/property/provider. Supported providers: Telegram and HTTPS JSON webhook.
+SMTP/email is planned, not yet implemented. A check refreshes up to
+`enrich_limit` missing/stale properties per watch, so a large initial backfill
+may require several checks. The crawler relies on source visibility and cannot
+guarantee immediate discovery. Check source terms and permitted reuse before
+running a public alert service.
+
+Example cron entry (adjust binary and config paths):
+
+```cron
+*/10 * * * * /usr/local/bin/funda check --config /home/user/.config/funda/monitor.json
+```

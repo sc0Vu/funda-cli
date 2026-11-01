@@ -37,3 +37,4 @@ funda
 *.db-shm
 *.db-wal
 __pycache__
+monitor.json

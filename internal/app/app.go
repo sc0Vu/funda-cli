@@ -35,6 +35,15 @@ func (a App) Run(ctx context.Context, args []string) error {
 	defer s.Close()
 
 	switch args[0] {
+	case "watch":
+		if len(args) > 1 && args[1] == "list" {
+			return runWatchList(args[2:])
+		}
+		return runMonitor(ctx, s, args[0], args[1:])
+	case "check":
+		return runMonitor(ctx, s, args[0], args[1:])
+	case "notify":
+		return runNotify(ctx, args[1:])
 	case "game":
 		return runGame(ctx, s, args[1:])
 	case "sync":
@@ -461,6 +470,10 @@ func usage() {
 	fmt.Print(`funda - lightweight local housing search CLI
 
 Commands:
+  funda check --config monitor.json    fetch, enrich, match and notify once
+  funda watch --config monitor.json    repeat checks on an interval
+  funda watch list --config monitor.json  show saved preferences and destinations
+  funda notify test --config monitor.json --provider telegram_personal
   funda game guess  --mode buy|rent [--city utrecht] [--rounds 5] [--seed 42]
   funda game hunter --mode buy|rent [--city utrecht] [--budget 375000] [--income 4500] [--income-multiplier 3]
   funda sync    --source funda --category rent|buy|newbuild|all [--sitemap URL]

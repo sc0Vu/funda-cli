@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Funda CLI property check every 10 minutes
+
+[Timer]
+OnCalendar=*:0/10
+Persistent=true
+Unit=funda-check.service
+
+[Install]
+WantedBy=timers.target

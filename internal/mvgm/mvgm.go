@@ -34,6 +34,10 @@ var (
 	monthly35RE   = regexp.MustCompile(`(?i)(?:bruto[- ]maandinkomen).*?(?:3[,.]5|3\.5)\s*(?:x|keer).*?(?:huurprijs|kale maandhuur)`)
 	genericMultRE = regexp.MustCompile(`(?i)([0-9]+(?:[,.][0-9]+)?)\s*(?:x|keer)\s+(?:de\s+)?(?:kale\s+)?maandhuur`)
 	latitudeRE    = regexp.MustCompile(`(?i)["']?latitude["']?\s*[:=]\s*["']?(-?[0-9]+(?:\.[0-9]+)?)`)
+	drawingMarkRE = regexp.MustCompile(`(?i)plattegrond(?:en)?|floor\s*plans?`)
+	drawingEndRE  = regexp.MustCompile(`(?i)Kenmerken|Interesse\?|Complex`)
+	drawingAttrRE = regexp.MustCompile(`(?i)\b(?:src|data-src|srcset|href)\s*=\s*(?:"([^"]*)"|'([^']*)')`)
+	drawingExtRE  = regexp.MustCompile(`(?i)\.(?:jpe?g|png|webp|pdf|svg)$`)
 	longitudeRE   = regexp.MustCompile(`(?i)["']?longitude["']?\s*[:=]\s*["']?(-?[0-9]+(?:\.[0-9]+)?)`)
 )
 
@@ -182,6 +186,8 @@ func Fetch(ctx context.Context, profile string, timeout time.Duration, ref model
 		d.AvailableFrom = strings.TrimSpace(m[1])
 	}
 
+	d.HasDrawing, d.DrawingURLs = parseDrawing(raw)
+
 	d.IncomeMultiplier, d.IncomeBasis, d.IncomeRule = parseIncomeRule(text, l.Price)
 	if l.Price > 0 && d.IncomeMultiplier > 0 {
 		if d.IncomeBasis == "annual" {
@@ -276,4 +282,69 @@ func defaultHeaders() http.Header {
 	h.Set("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
 	h.Set("accept-language", "nl-NL,nl;q=0.9,en;q=0.8")
 	return h
+}
+
+// parseDrawing finds image/PDF URLs in the Plattegrond (floor plan) section of
+// the raw detail page HTML. A bare label without any URL yields false.
+func parseDrawing(raw string) (bool, []string) {
+	const maxSection = 5000
+	var urls []string
+	seen := map[string]bool{}
+	for _, loc := range drawingMarkRE.FindAllStringIndex(raw, -1) {
+		start := loc[1]
+		end := len(raw)
+		if end-start > maxSection {
+			end = start + maxSection
+		}
+		if m := drawingEndRE.FindStringIndex(raw[start:end]); m != nil {
+			end = start + m[0]
+		}
+		for _, m := range drawingAttrRE.FindAllStringSubmatch(raw[start:end], -1) {
+			val := m[1]
+			if val == "" {
+				val = m[2]
+			}
+			for _, cand := range splitDrawingCandidates(val) {
+				u := resolveDrawingURL(html.UnescapeString(cand))
+				if u == "" || seen[u] {
+					continue
+				}
+				seen[u] = true
+				urls = append(urls, u)
+			}
+		}
+	}
+	return len(urls) > 0, urls
+}
+
+// splitDrawingCandidates splits a srcset-style value ("a.jpg 1x, b.jpg 2x").
+func splitDrawingCandidates(v string) []string {
+	var out []string
+	for _, part := range strings.Split(v, ",") {
+		f := strings.Fields(part)
+		if len(f) > 0 {
+			out = append(out, f[0])
+		}
+	}
+	return out
+}
+
+func resolveDrawingURL(u string) string {
+	u = strings.TrimSpace(u)
+	path := u
+	if i := strings.IndexAny(path, "?#"); i >= 0 {
+		path = path[:i]
+	}
+	if !drawingExtRE.MatchString(path) {
+		return ""
+	}
+	switch {
+	case strings.HasPrefix(u, "//"):
+		return "https:" + u
+	case strings.HasPrefix(u, "/"):
+		return baseURL + u
+	case strings.HasPrefix(u, "http://"), strings.HasPrefix(u, "https://"):
+		return u
+	}
+	return ""
 }

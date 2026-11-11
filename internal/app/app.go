@@ -321,6 +321,11 @@ func runView(ctx context.Context, s *store.Store, args []string) error {
 	if l.Source == "mvgm" {
 		if d, err := s.RentalDetails(ctx, l.Source, l.ID); err == nil {
 			fmt.Printf("Service cost: €%.0f\nDeposit: €%.0f\nAvailable: %s\nIncome rule: %s\nRequired annual income: €%.0f\n", d.ServiceCost, d.Deposit, d.AvailableFrom, d.IncomeRule, d.RequiredIncome)
+				if d.HasDrawing {
+					fmt.Printf("Drawing: yes (%s)\n", strings.Join(d.DrawingURLs, ", "))
+				} else {
+					fmt.Println("Drawing: no")
+				}
 		}
 	}
 	if *showMap {

@@ -42,16 +42,18 @@ type Listing struct {
 }
 
 type RentalDetails struct {
-	Source           string  `json:"source"`
-	ListingID        string  `json:"listing_id"`
-	ServiceCost      float64 `json:"service_cost"`
-	Deposit          float64 `json:"deposit"`
-	AvailableFrom    string  `json:"available_from"`
-	IncomeRule       string  `json:"income_rule"`
-	IncomeMultiplier float64 `json:"income_multiplier"`
-	IncomeBasis      string  `json:"income_basis"`
-	RequiredIncome   float64 `json:"required_income"`
-	RawConditions    string  `json:"raw_conditions"`
+	Source           string   `json:"source"`
+	ListingID        string   `json:"listing_id"`
+	ServiceCost      float64  `json:"service_cost"`
+	Deposit          float64  `json:"deposit"`
+	AvailableFrom    string   `json:"available_from"`
+	IncomeRule       string   `json:"income_rule"`
+	IncomeMultiplier float64  `json:"income_multiplier"`
+	IncomeBasis      string   `json:"income_basis"`
+	RequiredIncome   float64  `json:"required_income"`
+	RawConditions    string   `json:"raw_conditions"`
+	HasDrawing       bool     `json:"has_drawing"`
+	DrawingURLs      []string `json:"drawing_urls"`
 }
 type FundaListingResponse struct {
 	Identifiers        Identifiers        `json:"Identifiers"`

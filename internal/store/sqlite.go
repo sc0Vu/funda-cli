@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -88,6 +89,8 @@ CREATE TABLE IF NOT EXISTS rental_details (
     income_basis TEXT,
     required_income REAL,
     raw_conditions TEXT,
+    has_drawing INTEGER NOT NULL DEFAULT 0,
+    drawing_urls TEXT,
     PRIMARY KEY(source, listing_id),
     FOREIGN KEY(source, listing_id) REFERENCES listing_refs(source, id) ON DELETE CASCADE
 );
@@ -104,6 +107,20 @@ CREATE TABLE IF NOT EXISTS rental_details (
 	if !has {
 		if _, err := s.db.Exec(`ALTER TABLE listings ADD COLUMN enriched_lastmod TEXT`); err != nil {
 			return err
+		}
+	}
+	for _, migration := range []struct{ table, col, def string }{
+		{"rental_details", "has_drawing", "INTEGER NOT NULL DEFAULT 0"},
+		{"rental_details", "drawing_urls", "TEXT"},
+	} {
+		exists, e := s.columnExists(migration.table, migration.col)
+		if e != nil {
+			return e
+		}
+		if !exists {
+			if _, e = s.db.Exec("ALTER TABLE " + migration.table + " ADD COLUMN " + migration.col + " " + migration.def); e != nil {
+				return e
+			}
 		}
 	}
 	if err := s.initLifecycle(); err != nil {
@@ -344,22 +361,47 @@ func (s *Store) UpsertRentalDetails(ctx context.Context, d model.RentalDetails) 
 	if d.Source == "" {
 		return fmt.Errorf("rental details %q has empty source", d.ListingID)
 	}
+	hasDrawing := 0
+	if d.HasDrawing {
+		hasDrawing = 1
+	}
+	drawingURLs := ""
+	if len(d.DrawingURLs) > 0 {
+		b, err := json.Marshal(d.DrawingURLs)
+		if err != nil {
+			return err
+		}
+		drawingURLs = string(b)
+	}
 	_, err := s.db.ExecContext(ctx, `
-INSERT INTO rental_details(source,listing_id,service_cost,deposit,available_from,income_rule,income_multiplier,income_basis,required_income,raw_conditions)
-VALUES (?,?,?,?,?,?,?,?,?,?)
+INSERT INTO rental_details(source,listing_id,service_cost,deposit,available_from,income_rule,income_multiplier,income_basis,required_income,raw_conditions,has_drawing,drawing_urls)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(source,listing_id) DO UPDATE SET
  service_cost=excluded.service_cost, deposit=excluded.deposit, available_from=excluded.available_from,
  income_rule=excluded.income_rule, income_multiplier=excluded.income_multiplier,
- income_basis=excluded.income_basis, required_income=excluded.required_income, raw_conditions=excluded.raw_conditions`,
-		d.Source, d.ListingID, d.ServiceCost, d.Deposit, d.AvailableFrom, d.IncomeRule, d.IncomeMultiplier, d.IncomeBasis, d.RequiredIncome, d.RawConditions)
+ income_basis=excluded.income_basis, required_income=excluded.required_income, raw_conditions=excluded.raw_conditions,
+ has_drawing=excluded.has_drawing, drawing_urls=excluded.drawing_urls`,
+		d.Source, d.ListingID, d.ServiceCost, d.Deposit, d.AvailableFrom, d.IncomeRule, d.IncomeMultiplier, d.IncomeBasis, d.RequiredIncome, d.RawConditions, hasDrawing, drawingURLs)
 	return err
 }
 
 func (s *Store) RentalDetails(ctx context.Context, source, id string) (model.RentalDetails, error) {
 	var d model.RentalDetails
-	err := s.db.QueryRowContext(ctx, `SELECT source,listing_id,COALESCE(service_cost,0),COALESCE(deposit,0),COALESCE(available_from,''),COALESCE(income_rule,''),COALESCE(income_multiplier,0),COALESCE(income_basis,''),COALESCE(required_income,0),COALESCE(raw_conditions,'') FROM rental_details WHERE source=? AND listing_id=?`, source, id).
-		Scan(&d.Source, &d.ListingID, &d.ServiceCost, &d.Deposit, &d.AvailableFrom, &d.IncomeRule, &d.IncomeMultiplier, &d.IncomeBasis, &d.RequiredIncome, &d.RawConditions)
-	return d, err
+	var hasDrawing int
+	var drawingURLs string
+	err := s.db.QueryRowContext(ctx, `SELECT source,listing_id,COALESCE(service_cost,0),COALESCE(deposit,0),COALESCE(available_from,''),COALESCE(income_rule,''),COALESCE(income_multiplier,0),COALESCE(income_basis,''),COALESCE(required_income,0),COALESCE(raw_conditions,''),COALESCE(has_drawing,0),COALESCE(drawing_urls,'') FROM rental_details WHERE source=? AND listing_id=?`, source, id).
+		Scan(&d.Source, &d.ListingID, &d.ServiceCost, &d.Deposit, &d.AvailableFrom, &d.IncomeRule, &d.IncomeMultiplier, &d.IncomeBasis, &d.RequiredIncome, &d.RawConditions, &hasDrawing, &drawingURLs)
+	if err != nil {
+		return d, err
+	}
+	d.HasDrawing = hasDrawing != 0
+	if drawingURLs != "" {
+		var urls []string
+		if json.Unmarshal([]byte(drawingURLs), &urls) == nil && len(urls) > 0 {
+			d.DrawingURLs = urls
+		}
+	}
+	return d, nil
 }
 
 type SearchQuery struct {

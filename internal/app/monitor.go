@@ -20,6 +20,21 @@ import (
 	"github.com/sc0vu/funda-cli/internal/store"
 )
 
+func formatListingMessage(watchName, eventType string, l model.Listing, d *model.RentalDetails) string {
+	message := fmt.Sprintf("🏠 %s (%s): %s\n%s\n€%.0f · %.0f m² · %d bedrooms\n", watchName, eventType, l.Address, l.City, l.Price, l.LivingArea, l.Bedrooms)
+	if d != nil && l.Source == "mvgm" {
+		if d.HasDrawing {
+			message += "📐 Drawing: yes\n"
+			if len(d.DrawingURLs) > 0 {
+				message += "📐 " + d.DrawingURLs[0] + "\n"
+			}
+		} else {
+			message += "📐 Drawing: no\n"
+		}
+	}
+	return message + l.URL
+}
+
 func runNotify(ctx context.Context, args []string) error {
 	if len(args) == 0 || args[0] != "test" {
 		return fmt.Errorf("usage: funda notify test --config monitor.json --provider NAME")
@@ -276,7 +291,13 @@ func checkCycle(ctx context.Context, s *store.Store, c monitor.Config, noNotify 
 					if !claimed {
 						continue
 					}
-					message := fmt.Sprintf("🏠 %s (%s): %s\n%s\n€%.0f · %.0f m² · %d bedrooms\n%s", w.Name, eventType, l.Address, l.City, l.Price, l.LivingArea, l.Bedrooms, l.URL)
+					var details *model.RentalDetails
+						if l.Source == "mvgm" {
+							if d, err := s.RentalDetails(ctx, l.Source, l.ID); err == nil {
+								details = &d
+							}
+						}
+						message := formatListingMessage(w.Name, eventType, l, details)
 					sendErr := monitor.Send(ctx, c.Providers[name], message)
 					if err := s.CompleteJob(ctx, w.Name, l.Source, l.ID, name, generation, eventType, eventKey, sendErr); err != nil {
 						return err

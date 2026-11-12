@@ -38,3 +38,5 @@ go.work.sum
 *.db-wal
 __pycache__
 monitor.json
+site/funda.wasm
+site/wasm_exec.js

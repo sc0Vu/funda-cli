@@ -13,9 +13,12 @@ The `.github/workflows/pages.yml` workflow publishes the `site/` directory on pu
 ## Local preview
 
 ```sh
+make wasm   # builds site/funda.wasm and site/wasm_exec.js for the live demo
 python3 -m http.server 8000 --directory site
 # open http://localhost:8000
 ```
+
+The live demo needs `make wasm` to be run first; without it the page cannot load `funda.wasm`. The generated files are git-ignored. The Pages workflow runs `make wasm` automatically before publishing.
 
 ## Customization
 

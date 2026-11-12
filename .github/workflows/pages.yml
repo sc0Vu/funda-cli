@@ -6,6 +6,10 @@ on:
     paths:
       - 'site/**'
       - '.github/workflows/pages.yml'
+      - 'cmd/funda-wasm/**'
+      - 'internal/webdemo/**'
+      - 'Makefile'
+      - 'go.mod'
   workflow_dispatch:
 
 permissions:
@@ -29,6 +33,12 @@ jobs:
         uses: actions/checkout@v4
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build WebAssembly demo
+        run: make wasm
       - name: Upload website
         uses: actions/upload-pages-artifact@v3
         with:
